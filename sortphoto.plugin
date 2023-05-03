@@ -1,9 +1,0 @@
-[Plugin]
-Loader=python3
-Module=sortphoto
-IAge=2
-Name=Sort Photo
-Icon=media-playlist-shuffle-symbolic
-Description=Sort Photo
-Authors=@cat_in_136
-Copyright=Copyright © 2023 @cat_in_136
