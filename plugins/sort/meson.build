@@ -24,7 +24,7 @@ i18n.merge_file(
 shared_library(
     plugin_name,
     'xviewer-sort-plugin.c',
-    dependencies: [config_h, glib, gtk, libpeas, xviewer],
+    dependencies: [config_h, glib, gtk, exif, libpeas, xviewer],
     install: true,
     install_dir: plugin_libdir,
 )

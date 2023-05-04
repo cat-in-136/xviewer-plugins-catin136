@@ -19,7 +19,6 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-#include <xviewer/xviewer-list-store.h>
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -27,10 +26,16 @@
 #include <glib/gi18n-lib.h>
 #include <gtk/gtk.h>
 #include <xviewer/xviewer-debug.h>
+#include <xviewer/xviewer-image.h>
+#include <xviewer/xviewer-list-store.h>
 #include <xviewer/xviewer-window-activatable.h>
 #include <xviewer/xviewer-window.h>
 
 #include "xviewer-sort-plugin.h"
+
+#ifndef HAVE_EXIF
+#error HAVE_EXIF must be set
+#endif
 
 static void
 xviewer_window_activatable_iface_init(XviewerWindowActivatableInterface *iface);
@@ -46,6 +51,10 @@ static void on_ascending_name(GtkAction *action, XviewerWindow *window);
 static void on_descending_name(GtkAction *action, XviewerWindow *window);
 static void on_ascending_mtime(GtkAction *action, XviewerWindow *window);
 static void on_descending_mtime(GtkAction *action, XviewerWindow *window);
+#ifdef HAVE_EXIF
+static void on_ascending_shoot_time(GtkAction *action, XviewerWindow *window);
+static void on_descending_shoot_time(GtkAction *action, XviewerWindow *window);
+#endif
 
 static const gchar UI_STR[] =
     "<ui>"
@@ -58,6 +67,11 @@ static const gchar UI_STR[] =
     "        <separator/>"
     "        <menuitem action=\"XviewerSortPluginAscendingMTime\"/>"
     "        <menuitem action=\"XviewerSortPluginDescendingMTime\"/>"
+#ifdef HAVE_EXIF
+    "        <separator/>"
+    "        <menuitem action=\"XviewerSortPluginAscendingShootTime\"/>"
+    "        <menuitem action=\"XviewerSortPluginDescendingShootTime\"/>"
+#endif
     "      </menu>"
     "      <separator/>"
     "    </menu>"
@@ -79,7 +93,18 @@ static const GtkActionEntry ACTION_ENTRIES[] = {
     {"XviewerSortPluginDescendingMTime", NULL,
      N_("Modified Time (Descending Order)"), NULL,
      N_("Sort photo list by modified time in descending order"),
-     G_CALLBACK(on_descending_mtime)}};
+     G_CALLBACK(on_descending_mtime)},
+#ifdef HAVE_EXIF
+    {"XviewerSortPluginAscendingShootTime", NULL,
+     N_("Shoot Time (Ascending Order)"), NULL,
+     N_("Sort photo list by EXIF-based shoot time in ascending order"),
+     G_CALLBACK(on_ascending_shoot_time)},
+    {"XviewerSortPluginDescendingShootTime", NULL,
+     N_("Shoot Time (Descending Order)"), NULL,
+     N_("Sort photo list by EXIF-based shoot time in descending order"),
+     G_CALLBACK(on_descending_shoot_time)},
+#endif
+};
 
 static void xviewer_sort_plugin_init(XviewerSortPlugin *plugin) {
   plugin->action_group = NULL;
@@ -171,23 +196,89 @@ G_MODULE_EXPORT void peas_register_types(PeasObjectModule *module) {
       module, XVIEWER_TYPE_WINDOW_ACTIVATABLE, XVIEWER_TYPE_SORT_PLUGIN);
 }
 
-static gint64 xviewer_image_get_date_unix(XviewerImage *image,
-                                          gboolean use_exif, GError **error) {
-  GFile *const gfile = xviewer_image_get_file(image);
+#ifdef HAVE_EXIF
+static gint64 exif_get_unix_date(ExifData *exif, gint datetime_tag,
+                                 gint timezone_tag) {
+  int year, month, day, hour, minutes, seconds;
+  GTimeZone *timezone = NULL;
+  gchar exif_buffer[512];
+  const gchar *buf_ptr = NULL;
 
-  GFileInfo *const fileinfo =
-      g_file_query_info(gfile, G_FILE_ATTRIBUTE_TIME_MODIFIED,
-                        G_FILE_QUERY_INFO_NONE, NULL, error);
-  if (fileinfo == NULL) {
+  buf_ptr = xviewer_exif_data_get_value(exif, datetime_tag, exif_buffer,
+                                        sizeof(exif_buffer));
+  if (buf_ptr == NULL) {
     return 0;
   }
 
-  GDateTime *const mdatetime = g_file_info_get_modification_date_time(fileinfo);
+  const int result = sscanf(buf_ptr, "%d:%d:%d %d:%d:%d", &year, &month, &day,
+                            &hour, &minutes, &seconds);
+  if (result < 3 || !g_date_valid_dmy(day, month, year)) {
+    xviewer_debug_message(DEBUG_PLUGINS, "Wrong EXIF Date Format: %s", buf_ptr);
+    return 0;
+  }
+  if (result < 5) {
+    hour = minutes = seconds = 0; // ignore time
+  }
 
-  const gint64 mtime = g_date_time_to_unix(mdatetime);
+  buf_ptr = xviewer_exif_data_get_value(exif, timezone_tag, exif_buffer,
+                                        sizeof(exif_buffer));
+  if (buf_ptr != NULL) {
+    timezone = g_time_zone_new_identifier(buf_ptr);
+  }
+  if (timezone == NULL) {
+    timezone = g_time_zone_new_local();
+  }
 
-  g_date_time_unref(mdatetime);
-  g_object_unref(fileinfo);
+  GDateTime *datetime =
+      g_date_time_new(timezone, year, month, day, hour, minutes, seconds);
+
+  const gint64 unix_time = g_date_time_to_unix(datetime);
+
+  g_date_time_unref(datetime);
+  g_time_zone_unref(timezone);
+
+  return unix_time;
+}
+#endif
+
+static gint64 xviewer_image_get_date_unix(XviewerImage *image,
+                                          gboolean use_exif, GError **error) {
+  gint64 mtime = 0;
+
+#ifdef HAVE_EXIF
+  if (use_exif) {
+    ExifData *const exif = xviewer_image_get_exif_info(image);
+
+    if (exif != NULL) {
+      mtime = exif_get_unix_date(exif, EXIF_TAG_DATE_TIME_ORIGINAL,
+                                 EXIF_TAG_OFFSET_TIME_ORIGINAL);
+      if (mtime == 0) {
+        mtime = exif_get_unix_date(exif, EXIF_TAG_DATE_TIME_DIGITIZED,
+                                   EXIF_TAG_OFFSET_TIME_DIGITIZED);
+      }
+
+      exif_data_unref(exif);
+    }
+  }
+#endif
+
+  if (mtime == 0) {
+    GFile *const gfile = xviewer_image_get_file(image);
+
+    GFileInfo *const fileinfo =
+        g_file_query_info(gfile, G_FILE_ATTRIBUTE_TIME_MODIFIED,
+                          G_FILE_QUERY_INFO_NONE, NULL, error);
+    if (fileinfo != NULL) {
+      GDateTime *const mdatetime =
+          g_file_info_get_modification_date_time(fileinfo);
+
+      mtime = g_date_time_to_unix(mdatetime);
+
+      g_date_time_unref(mdatetime);
+      g_object_unref(fileinfo);
+    }
+    g_object_unref(gfile);
+  }
 
   return mtime;
 }
@@ -242,38 +333,6 @@ static gint ascending_mtime_sort_func(GtkTreeModel *model, GtkTreeIter *iter1,
     return 0;
   }
 
-  /*
-
-  GFile *const gfile1 = xviewer_image_get_file(img1);
-  GFile *const gfile2 = xviewer_image_get_file(img2);
-
-  GFileInfo *const fileinfo1 =
-      g_file_query_info(gfile1, G_FILE_ATTRIBUTE_TIME_MODIFIED,
-                        G_FILE_QUERY_INFO_NONE, NULL, NULL);
-  GFileInfo *const fileinfo2 =
-      g_file_query_info(gfile2, G_FILE_ATTRIBUTE_TIME_MODIFIED,
-                        G_FILE_QUERY_INFO_NONE, NULL, NULL);
-
-  if ((fileinfo1 != NULL) && (fileinfo2 != NULL)) {
-    GDateTime *const mdatetime1 =
-        g_file_info_get_modification_date_time(fileinfo1);
-    GDateTime *const mdatetime2 =
-        g_file_info_get_modification_date_time(fileinfo2);
-
-    const gint64 mtime1 = g_date_time_to_unix(mdatetime1);
-    const gint64 mtime2 = g_date_time_to_unix(mdatetime2);
-
-    retval = CLAMP(mtime1 - mtime2, -1, 1);
-
-    g_date_time_unref(mdatetime1);
-    g_date_time_unref(mdatetime2);
-    g_object_unref(fileinfo1);
-    g_object_unref(fileinfo2);
-  }
-
-  g_object_unref(gfile1);
-  g_object_unref(gfile2);
-  */
   g_object_unref(img1);
   g_object_unref(img2);
 
@@ -284,6 +343,44 @@ static gint descending_mtime_sort_func(GtkTreeModel *model, GtkTreeIter *iter1,
                                        GtkTreeIter *iter2, gpointer data) {
   return -ascending_mtime_sort_func(model, iter1, iter2, data);
 }
+
+#ifdef HAVE_EXIF
+static gint ascending_shoot_time_sort_func(GtkTreeModel *model,
+                                           GtkTreeIter *iter1,
+                                           GtkTreeIter *iter2, gpointer data) {
+  XviewerImage *img1 = NULL;
+  XviewerImage *img2 = NULL;
+  gtk_tree_model_get(model, iter1, XVIEWER_LIST_STORE_XVIEWER_IMAGE, &img1, -1);
+  gtk_tree_model_get(model, iter2, XVIEWER_LIST_STORE_XVIEWER_IMAGE, &img2, -1);
+
+  GError *err = NULL;
+  const gint64 mtime1 = xviewer_image_get_date_unix(img1, TRUE, &err);
+  if (err != NULL) {
+    xviewer_debug_message(DEBUG_PLUGINS, "Failed to get mdata: %s",
+                          err->message);
+    g_error_free(err);
+    return 0;
+  }
+  const gint64 mtime2 = xviewer_image_get_date_unix(img2, TRUE, &err);
+  if (err != NULL) {
+    xviewer_debug_message(DEBUG_PLUGINS, "Failed to get mdata: %s",
+                          err->message);
+    g_error_free(err);
+    return 0;
+  }
+
+  g_object_unref(img1);
+  g_object_unref(img2);
+
+  return CLAMP(mtime1 - mtime2, -1, 1);
+}
+
+static gint descending_shoot_time_sort_func(GtkTreeModel *model,
+                                            GtkTreeIter *iter1,
+                                            GtkTreeIter *iter2, gpointer data) {
+  return -ascending_shoot_time_sort_func(model, iter1, iter2, data);
+}
+#endif
 
 static void on_ascending_name(GtkAction *action, XviewerWindow *window) {
   XviewerListStore *const store = xviewer_window_get_store(window);
@@ -312,3 +409,19 @@ static void on_descending_mtime(GtkAction *action, XviewerWindow *window) {
   gtk_tree_sortable_set_default_sort_func(
       GTK_TREE_SORTABLE(store), &descending_mtime_sort_func, NULL, NULL);
 }
+
+#ifdef HAVE_EXIF
+static void on_ascending_shoot_time(GtkAction *action, XviewerWindow *window) {
+  XviewerListStore *const store = xviewer_window_get_store(window);
+
+  gtk_tree_sortable_set_default_sort_func(
+      GTK_TREE_SORTABLE(store), &ascending_shoot_time_sort_func, NULL, NULL);
+}
+
+static void on_descending_shoot_time(GtkAction *action, XviewerWindow *window) {
+  XviewerListStore *const store = xviewer_window_get_store(window);
+
+  gtk_tree_sortable_set_default_sort_func(
+      GTK_TREE_SORTABLE(store), &descending_shoot_time_sort_func, NULL, NULL);
+}
+#endif
