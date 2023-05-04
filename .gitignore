@@ -2,7 +2,7 @@ debian/.debhelper/
 debian/debhelper-build-stamp
 debian/files
 debian/tmp/
-debian/xviewer-plugins/
+debian/xviewer-plugins-catin136/
 debian/*.debhelper
 debian/*.substvars
 debian/*.log
