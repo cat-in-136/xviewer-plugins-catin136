@@ -26,6 +26,7 @@
 
 #include <glib/gi18n-lib.h>
 #include <gtk/gtk.h>
+#include <xviewer/xviewer-debug.h>
 #include <xviewer/xviewer-window-activatable.h>
 #include <xviewer/xviewer-window.h>
 
@@ -170,6 +171,27 @@ G_MODULE_EXPORT void peas_register_types(PeasObjectModule *module) {
       module, XVIEWER_TYPE_WINDOW_ACTIVATABLE, XVIEWER_TYPE_SORT_PLUGIN);
 }
 
+static gint64 xviewer_image_get_date_unix(XviewerImage *image,
+                                          gboolean use_exif, GError **error) {
+  GFile *const gfile = xviewer_image_get_file(image);
+
+  GFileInfo *const fileinfo =
+      g_file_query_info(gfile, G_FILE_ATTRIBUTE_TIME_MODIFIED,
+                        G_FILE_QUERY_INFO_NONE, NULL, error);
+  if (fileinfo == NULL) {
+    return 0;
+  }
+
+  GDateTime *const mdatetime = g_file_info_get_modification_date_time(fileinfo);
+
+  const gint64 mtime = g_date_time_to_unix(mdatetime);
+
+  g_date_time_unref(mdatetime);
+  g_object_unref(fileinfo);
+
+  return mtime;
+}
+
 static gint ascending_name_sort_func(GtkTreeModel *model, GtkTreeIter *iter1,
                                      GtkTreeIter *iter2, gpointer data) {
   gint retval = 0;
@@ -199,12 +221,28 @@ static gint descending_name_sort_func(GtkTreeModel *model, GtkTreeIter *iter1,
 
 static gint ascending_mtime_sort_func(GtkTreeModel *model, GtkTreeIter *iter1,
                                       GtkTreeIter *iter2, gpointer data) {
-  gint retval = 0;
-
   XviewerImage *img1 = NULL;
   XviewerImage *img2 = NULL;
   gtk_tree_model_get(model, iter1, XVIEWER_LIST_STORE_XVIEWER_IMAGE, &img1, -1);
   gtk_tree_model_get(model, iter2, XVIEWER_LIST_STORE_XVIEWER_IMAGE, &img2, -1);
+
+  GError *err = NULL;
+  const gint64 mtime1 = xviewer_image_get_date_unix(img1, FALSE, &err);
+  if (err != NULL) {
+    xviewer_debug_message(DEBUG_PLUGINS, "Failed to get mdata: %s",
+                          err->message);
+    g_error_free(err);
+    return 0;
+  }
+  const gint64 mtime2 = xviewer_image_get_date_unix(img2, FALSE, &err);
+  if (err != NULL) {
+    xviewer_debug_message(DEBUG_PLUGINS, "Failed to get mdata: %s",
+                          err->message);
+    g_error_free(err);
+    return 0;
+  }
+
+  /*
 
   GFile *const gfile1 = xviewer_image_get_file(img1);
   GFile *const gfile2 = xviewer_image_get_file(img2);
@@ -225,13 +263,7 @@ static gint ascending_mtime_sort_func(GtkTreeModel *model, GtkTreeIter *iter1,
     const gint64 mtime1 = g_date_time_to_unix(mdatetime1);
     const gint64 mtime2 = g_date_time_to_unix(mdatetime2);
 
-    if (mtime1 > mtime2) {
-      retval = 1;
-    } else if (mtime1 < mtime2) {
-      retval = -1;
-    } else {
-      retval = 0;
-    }
+    retval = CLAMP(mtime1 - mtime2, -1, 1);
 
     g_date_time_unref(mdatetime1);
     g_date_time_unref(mdatetime2);
@@ -241,10 +273,11 @@ static gint ascending_mtime_sort_func(GtkTreeModel *model, GtkTreeIter *iter1,
 
   g_object_unref(gfile1);
   g_object_unref(gfile2);
+  */
   g_object_unref(img1);
   g_object_unref(img2);
 
-  return retval;
+  return CLAMP(mtime1 - mtime2, -1, 1);
 }
 
 static gint descending_mtime_sort_func(GtkTreeModel *model, GtkTreeIter *iter1,
