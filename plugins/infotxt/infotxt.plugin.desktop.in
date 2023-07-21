@@ -1,0 +1,9 @@
+[Plugin]
+Module=infotxt
+IAge=2
+Name=Info Text
+Icon=view-reveal-symbolic
+Description=Show Embedded Info Text
+Authors=@cat_in_136
+Copyright=Copyright © 2023 @cat_in_136
+Website=http://github.com/cat-in-136/xviewer-plugin-catin136

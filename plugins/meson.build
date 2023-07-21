@@ -1,1 +1,2 @@
+subdir('infotxt')
 subdir('sort')
