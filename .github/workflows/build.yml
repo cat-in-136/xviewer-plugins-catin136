@@ -1,0 +1,38 @@
+name: Build DEB for Linux Mint
+
+on: [push, pull_request]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+    container:
+      image: linuxmintd/mint21.1-amd64:latest
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        path: xviewer-plugin-catin136
+    - name: Install Dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y \
+          debhelper \
+          dh-make \
+          xviewer-dev \
+          libexif-dev \
+          libpeas-dev \
+          libcinnamon-desktop-dev \
+          dh-python \
+          gsettings-desktop-schemas-dev \
+          libexempi-dev \
+          liblcms2-dev \
+          libxapp-dev \
+          librsvg2-dev \
+          python3-all \
+          cmake
+    - name: Build DEB file
+      working-directory: xviewer-plugin-catin136
+      run: |
+        dh_auto_configure --buildsystem=meson
+        dpkg-buildpackage -rfakeroot -us -uc -b
+      
