@@ -39,7 +39,19 @@ jobs:
       run: |
         dh_auto_configure --buildsystem=meson
         dpkg-buildpackage -rfakeroot -us -uc -b
+    - uses: actions/upload-artifact@v3
+      with:
+        name: xviewer-plugin-catin136-deb-artifact
+        path: xviewer-plugins-catin136_*_amd64.deb
+        retention-days: 1
 
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/download-artifact@v3
+      with:
+        name: xviewer-plugin-catin136-deb-artifact
     - name: Create Release
       id: create_release
       uses: actions/create-release@latest
@@ -57,7 +69,7 @@ jobs:
       id: get_version
       run: |
         echo ${GITHUB_REF/refs\/tags\/v/}
-        echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\/v/}
+        echo "name=VERSION::${GITHUB_REF/refs\/tags\/v/}" >> $GITHUB_OUTPUT
     - name: Upload a DEB Package to the Release Assets
       uses: actions/upload-release-asset@latest
       env:
