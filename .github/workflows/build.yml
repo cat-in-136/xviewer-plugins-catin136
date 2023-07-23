@@ -1,0 +1,12 @@
+name: Build DEB for Linux Mint
+
+on: [push, pull_request]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+    container:
+      image: linuxmintd/mint21.1-amd64:latest
+    steps:
+    - uses: actions/checkout@v3
