@@ -63,8 +63,7 @@ static void manage_infotxt_data(XviewerInfotxtPlugin *plugin) {
         gtk_text_buffer_insert(buffer, &buffer_iter, val, -1);
         gtk_text_buffer_insert(buffer, &buffer_iter, "\n\n", -1);
       }
-
-      g_free(options);
+      // options is not freed here.
     }
     g_object_unref(pbuf);
   }
