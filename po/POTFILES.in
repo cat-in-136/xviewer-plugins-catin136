@@ -1,2 +1,4 @@
+plugins/infotxt/xviewer-infotxt.metainfo.xml.in
+plugins/infotxt/infotxt.plugin.desktop.in
 plugins/sort/xviewer-sort.metainfo.xml.in
 plugins/sort/sort.plugin.desktop.in
