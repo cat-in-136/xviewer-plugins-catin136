@@ -28,6 +28,7 @@
 #include <xviewer/xviewer-debug.h>
 #include <xviewer/xviewer-image.h>
 #include <xviewer/xviewer-list-store.h>
+#include <xviewer/xviewer-thumb-view.h>
 #include <xviewer/xviewer-window-activatable.h>
 #include <xviewer/xviewer-window.h>
 
@@ -374,6 +375,10 @@ static inline void apply_sort(XviewerWindow *window,
                                           NULL, NULL);
   gtk_tree_sortable_set_sort_column_id(GTK_TREE_SORTABLE(store), sort_column_id,
                                        order);
+
+  GtkWidget *const thumbview = xviewer_window_get_thumb_view(window);
+  xviewer_thumb_view_select_single(XVIEWER_THUMB_VIEW(thumbview),
+                                   XVIEWER_THUMB_VIEW_SELECT_CURRENT);
 }
 
 static void on_ascending_name(GtkAction *action, XviewerWindow *window) {
