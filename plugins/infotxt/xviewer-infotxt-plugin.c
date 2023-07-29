@@ -35,6 +35,36 @@ static void xviewer_infotxt_plugin_finalize(GObject *object) {
   G_OBJECT_CLASS(xviewer_infotxt_plugin_parent_class)->finalize(object);
 }
 
+static void infotxt_copy_btn_cb(GtkWidget *button, gpointer data) {
+  const gchar *const text = (const gchar *)data;
+  GdkDisplay *const display = gdk_display_get_default();
+  GtkClipboard *const clipboard = gtk_clipboard_get_default(display);
+  gtk_clipboard_set_text(clipboard, text, -1);
+}
+
+static void insert_infotxt_to_textbuffer(GtkTextView *const textview,
+                                         GtkTextBuffer *const buffer,
+                                         GtkTextIter *buffer_iter,
+                                         const gchar *const key,
+                                         const gchar *const val) {
+  gtk_text_buffer_insert_with_tags_by_name(buffer, buffer_iter, key, -1, "key",
+                                           NULL);
+  if (g_strcmp0(key, "tEXt::parameters") == 0) {
+    GtkTextChildAnchor *const anchor =
+        gtk_text_buffer_create_child_anchor(buffer, buffer_iter);
+
+    GtkWidget *button =
+        gtk_button_new_from_icon_name("edit-copy-symbolic", GTK_ICON_SIZE_MENU);
+    g_signal_connect(button, "clicked", G_CALLBACK(infotxt_copy_btn_cb),
+                     (gpointer)val);
+    gtk_text_view_add_child_at_anchor(textview, button, anchor);
+    gtk_widget_show_all(button);
+  }
+  gtk_text_buffer_insert(buffer, buffer_iter, "\n", -1);
+  gtk_text_buffer_insert(buffer, buffer_iter, val, -1);
+  gtk_text_buffer_insert(buffer, buffer_iter, "\n\n", -1);
+}
+
 static void manage_infotxt_data(XviewerInfotxtPlugin *plugin) {
   XviewerImage *const image = xviewer_window_get_image(plugin->window);
   g_return_if_fail(image != NULL);
@@ -57,11 +87,8 @@ static void manage_infotxt_data(XviewerInfotxtPlugin *plugin) {
       g_hash_table_iter_init(&option_iter, options);
       while (g_hash_table_iter_next(&option_iter, (gpointer *)&key,
                                     (gpointer *)&val)) {
-        gtk_text_buffer_insert_with_tags_by_name(buffer, &buffer_iter, key, -1,
-                                                 "key", NULL);
-        gtk_text_buffer_insert(buffer, &buffer_iter, "\n", -1);
-        gtk_text_buffer_insert(buffer, &buffer_iter, val, -1);
-        gtk_text_buffer_insert(buffer, &buffer_iter, "\n\n", -1);
+        insert_infotxt_to_textbuffer(GTK_TEXT_VIEW(plugin->view), buffer,
+                                     &buffer_iter, key, val);
       }
       // options is not freed here.
     }
