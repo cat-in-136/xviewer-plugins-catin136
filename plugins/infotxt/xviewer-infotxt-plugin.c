@@ -49,7 +49,10 @@ static void insert_infotxt_to_textbuffer(GtkTextView *const textview,
                                          const gchar *const val) {
   gtk_text_buffer_insert_with_tags_by_name(buffer, buffer_iter, key, -1, "key",
                                            NULL);
-  if (g_strcmp0(key, "tEXt::parameters") == 0) {
+  // AUTOMATIC1111/stable-diffusion-webui
+  if ((g_strcmp0(key, "tEXt::parameters") == 0) &&
+      (strstr(val, "\nSteps: ") != NULL)) {
+
     GtkTextChildAnchor *const anchor =
         gtk_text_buffer_create_child_anchor(buffer, buffer_iter);
 
@@ -59,9 +62,67 @@ static void insert_infotxt_to_textbuffer(GtkTextView *const textview,
                      (gpointer)val);
     gtk_text_view_add_child_at_anchor(textview, button, anchor);
     gtk_widget_show_all(button);
+    gtk_text_buffer_insert(buffer, buffer_iter, "\n", -1);
+
+    const gchar *p = val;
+
+    if ((p != NULL) && (strstr(p, "\nNegative prompt: ") != NULL)) {
+      const gchar *const eo_prompt = strstr(p, "\nNegative prompt: ");
+      gtk_text_buffer_insert(buffer, buffer_iter, p, eo_prompt - p);
+      p = eo_prompt;
+
+      const gchar *const so_neg_prompt =
+          eo_prompt + strlen("\nNegative prompt:");
+      gtk_text_buffer_insert_with_tags_by_name(
+          buffer, buffer_iter, p, so_neg_prompt - p, "semikey", NULL);
+      p = so_neg_prompt;
+    }
+
+    if ((p != NULL) && (strstr(p, "\nSteps: ") != NULL)) {
+      const gchar *const eo_prompt = strstr(p, "\nSteps: ");
+      gtk_text_buffer_insert(buffer, buffer_iter, p, eo_prompt - p);
+      p = eo_prompt;
+
+      while (1) {
+        const gchar *const eo_other_param_key_name = strstr(p, ": ");
+        if (eo_other_param_key_name == NULL) {
+          break;
+        }
+        const gchar *const eo_other_param_key =
+            eo_other_param_key_name + strlen(":");
+        gtk_text_buffer_insert_with_tags_by_name(
+            buffer, buffer_iter, p, eo_other_param_key - p, "semikey", NULL);
+        p = eo_other_param_key;
+
+        if (g_str_has_prefix(p, " \"") &&
+            (strstr(p + strlen(" \""), "\"") != NULL)) {
+          const gchar *const eo_escaped_str =
+              strstr(p + strlen(" \""), "\"") + strlen("\"");
+          gtk_text_buffer_insert(buffer, buffer_iter, p, eo_escaped_str - p);
+          p = eo_escaped_str;
+        }
+
+        const gchar *const eo_other_param_value = strstr(p, ", ");
+        if (eo_other_param_value == NULL) {
+          break;
+        }
+
+        const gchar *const so_other_param_key_next =
+            eo_other_param_value + strlen(", ");
+        gtk_text_buffer_insert(buffer, buffer_iter, p,
+                               so_other_param_key_next - p);
+        p = so_other_param_key_next;
+      }
+    }
+
+    if (p != NULL) {
+      gtk_text_buffer_insert(buffer, buffer_iter, p, -1);
+      p = NULL;
+    }
+  } else { // Other normal
+    gtk_text_buffer_insert(buffer, buffer_iter, "\n", -1);
+    gtk_text_buffer_insert(buffer, buffer_iter, val, -1);
   }
-  gtk_text_buffer_insert(buffer, buffer_iter, "\n", -1);
-  gtk_text_buffer_insert(buffer, buffer_iter, val, -1);
   gtk_text_buffer_insert(buffer, buffer_iter, "\n\n", -1);
 }
 
@@ -139,6 +200,8 @@ static void impl_activate(XviewerWindowActivatable *activatable) {
   GtkTextBuffer *const buffer =
       gtk_text_view_get_buffer(GTK_TEXT_VIEW(plugin->view));
   gtk_text_buffer_create_tag(buffer, "key", "weight", PANGO_WEIGHT_BOLD, NULL);
+  gtk_text_buffer_create_tag(buffer, "semikey", "weight", PANGO_WEIGHT_SEMIBOLD,
+                             NULL);
 
   plugin->sidebar_page = gtk_scrolled_window_new(NULL, NULL);
   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(plugin->sidebar_page),
