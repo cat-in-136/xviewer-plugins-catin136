@@ -365,64 +365,45 @@ static gint shoot_time_sort_func(GtkTreeModel *model, GtkTreeIter *iter1,
 }
 #endif
 
-static void on_ascending_name(GtkAction *action, XviewerWindow *window) {
+static inline void apply_sort(XviewerWindow *window,
+                              GtkTreeIterCompareFunc sort_func,
+                              gint sort_column_id, GtkSortType order) {
   XviewerListStore *const store = xviewer_window_get_store(window);
 
-  gtk_tree_sortable_set_default_sort_func(GTK_TREE_SORTABLE(store),
-                                          &name_sort_func, NULL, NULL);
-  gtk_tree_sortable_set_sort_column_id(GTK_TREE_SORTABLE(store),
-                                       GTK_TREE_SORTABLE_DEFAULT_SORT_COLUMN_ID,
-                                       GTK_SORT_ASCENDING);
+  gtk_tree_sortable_set_default_sort_func(GTK_TREE_SORTABLE(store), sort_func,
+                                          NULL, NULL);
+  gtk_tree_sortable_set_sort_column_id(GTK_TREE_SORTABLE(store), sort_column_id,
+                                       order);
+}
+
+static void on_ascending_name(GtkAction *action, XviewerWindow *window) {
+  apply_sort(window, &name_sort_func, GTK_TREE_SORTABLE_DEFAULT_SORT_COLUMN_ID,
+             GTK_SORT_ASCENDING);
 }
 
 static void on_descending_name(GtkAction *action, XviewerWindow *window) {
-  XviewerListStore *const store = xviewer_window_get_store(window);
-
-  gtk_tree_sortable_set_default_sort_func(GTK_TREE_SORTABLE(store),
-                                          &name_sort_func, NULL, NULL);
-  gtk_tree_sortable_set_sort_column_id(GTK_TREE_SORTABLE(store),
-                                       GTK_TREE_SORTABLE_DEFAULT_SORT_COLUMN_ID,
-                                       GTK_SORT_DESCENDING);
+  apply_sort(window, &name_sort_func, GTK_TREE_SORTABLE_DEFAULT_SORT_COLUMN_ID,
+             GTK_SORT_DESCENDING);
 }
 
 static void on_ascending_mtime(GtkAction *action, XviewerWindow *window) {
-  XviewerListStore *const store = xviewer_window_get_store(window);
-
-  gtk_tree_sortable_set_default_sort_func(GTK_TREE_SORTABLE(store),
-                                          &mtime_sort_func, NULL, NULL);
-  gtk_tree_sortable_set_sort_column_id(GTK_TREE_SORTABLE(store),
-                                       GTK_TREE_SORTABLE_DEFAULT_SORT_COLUMN_ID,
-                                       GTK_SORT_ASCENDING);
+  apply_sort(window, &mtime_sort_func, GTK_TREE_SORTABLE_DEFAULT_SORT_COLUMN_ID,
+             GTK_SORT_ASCENDING);
 }
 
 static void on_descending_mtime(GtkAction *action, XviewerWindow *window) {
-  XviewerListStore *const store = xviewer_window_get_store(window);
-
-  gtk_tree_sortable_set_default_sort_func(GTK_TREE_SORTABLE(store),
-                                          &mtime_sort_func, NULL, NULL);
-  gtk_tree_sortable_set_sort_column_id(GTK_TREE_SORTABLE(store),
-                                       GTK_TREE_SORTABLE_DEFAULT_SORT_COLUMN_ID,
-                                       GTK_SORT_DESCENDING);
+  apply_sort(window, &mtime_sort_func, GTK_TREE_SORTABLE_DEFAULT_SORT_COLUMN_ID,
+             GTK_SORT_DESCENDING);
 }
 
 #ifdef HAVE_EXIF
 static void on_ascending_shoot_time(GtkAction *action, XviewerWindow *window) {
-  XviewerListStore *const store = xviewer_window_get_store(window);
-
-  gtk_tree_sortable_set_default_sort_func(GTK_TREE_SORTABLE(store),
-                                          &shoot_time_sort_func, NULL, NULL);
-  gtk_tree_sortable_set_sort_column_id(GTK_TREE_SORTABLE(store),
-                                       GTK_TREE_SORTABLE_DEFAULT_SORT_COLUMN_ID,
-                                       GTK_SORT_ASCENDING);
+  apply_sort(window, &shoot_time_sort_func,
+             GTK_TREE_SORTABLE_DEFAULT_SORT_COLUMN_ID, GTK_SORT_ASCENDING);
 }
 
 static void on_descending_shoot_time(GtkAction *action, XviewerWindow *window) {
-  XviewerListStore *const store = xviewer_window_get_store(window);
-
-  gtk_tree_sortable_set_default_sort_func(GTK_TREE_SORTABLE(store),
-                                          &shoot_time_sort_func, NULL, NULL);
-  gtk_tree_sortable_set_sort_column_id(GTK_TREE_SORTABLE(store),
-                                       GTK_TREE_SORTABLE_DEFAULT_SORT_COLUMN_ID,
-                                       GTK_SORT_DESCENDING);
+  apply_sort(window, &shoot_time_sort_func,
+             GTK_TREE_SORTABLE_DEFAULT_SORT_COLUMN_ID, GTK_SORT_DESCENDING);
 }
 #endif
