@@ -11,7 +11,7 @@ jobs:
     steps:
     - uses: actions/checkout@v3
       with:
-        path: xviewer-plugin-catin136
+        path: xviewer-plugins-catin136
     - name: Install Dependencies
       run: |
         sudo apt update
@@ -31,7 +31,7 @@ jobs:
           python3-all \
           cmake
     - name: Build DEB file
-      working-directory: xviewer-plugin-catin136
+      working-directory: xviewer-plugins-catin136
       run: |
         dh_auto_configure --buildsystem=meson
         dpkg-buildpackage -rfakeroot -us -uc -b

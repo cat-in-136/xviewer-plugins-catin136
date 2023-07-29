@@ -1,10 +1,10 @@
-Name:		xviewer-plugin-catin136
+Name:		xviewer-plugins-catin136
 Version:	0.0.1
 Release:	0%{?dist}
 Summary:	cat_in_136's set of plugins for xviewer
 
 License:	GPLv2+
-URL:		https://github.com/cat-in-136/xviewer-plugin-catin136
+URL:		https://github.com/cat-in-136/xviewer-plugins-catin136
 Source0:	%{url}/archive/%{version}.tar.gz#/%{name}-%{version}.tar.gz
 
 BuildRequires:  meson
@@ -30,8 +30,7 @@ Requires:	xviewer%{?_isa}
 Requires(postun):	/sbin/ldconfig
 
 %description
- xviewer-plugins contain a set of plugins for xviewer.
-
+cat_in_136's set of plugins for xviewer
 
 %prep
 %autosetup -p 1

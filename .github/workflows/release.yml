@@ -15,7 +15,7 @@ jobs:
     steps:
     - uses: actions/checkout@v3
       with:
-        path: xviewer-plugin-catin136
+        path: xviewer-plugins-catin136
     - name: Install Dependencies
       run: |
         sudo apt update
@@ -35,13 +35,13 @@ jobs:
           python3-all \
           cmake
     - name: Build DEB file
-      working-directory: xviewer-plugin-catin136
+      working-directory: xviewer-plugins-catin136
       run: |
         dh_auto_configure --buildsystem=meson
         dpkg-buildpackage -rfakeroot -us -uc -b
     - uses: actions/upload-artifact@v3
       with:
-        name: xviewer-plugin-catin136-deb-artifact
+        name: xviewer-plugins-catin136-deb-artifact
         path: xviewer-plugins-catin136_*_amd64.deb
         retention-days: 1
 
@@ -51,7 +51,7 @@ jobs:
     steps:
     - uses: actions/download-artifact@v3
       with:
-        name: xviewer-plugin-catin136-deb-artifact
+        name: xviewer-plugins-catin136-deb-artifact
     - name: Create Release
       id: create_release
       uses: actions/create-release@latest
