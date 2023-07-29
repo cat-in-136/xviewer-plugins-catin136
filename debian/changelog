@@ -1,3 +1,8 @@
+xviewer-plugins-catin136 (0.0.2) unstable; urgency=medium
+
+  * special text highlighting and copy button for AUTOMATIC1111/stable-diffusion-webui parameter
+  * select thumbnail after sort changed
+
 xviewer-plugins-catin136 (0.0.1) unstable; urgency=medium
 
   * Initial release

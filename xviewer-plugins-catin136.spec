@@ -1,5 +1,5 @@
 Name:		xviewer-plugins-catin136
-Version:	0.0.1
+Version:	0.0.2
 Release:	0%{?dist}
 Summary:	cat_in_136's set of plugins for xviewer
 
@@ -81,5 +81,9 @@ fi
 
 
 %changelog
+* Sun Jul 30 2023 cat_in_136 - 0.0.2-1
+- special text highlighting and copy button for AUTOMATIC1111/stable-diffusion-webui parameter
+- select thumbnail after sort changed
+
 * Sat Jul 29 2023 cat_in_136 - 0.0.1-1
 - Initial
