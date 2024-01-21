@@ -175,11 +175,11 @@ static void selection_changed_cb(XviewerThumbView *view,
   XviewerImage *const image = xviewer_thumb_view_get_first_selected_image(view);
   g_return_if_fail(image != NULL);
 
-  // If xmp is loaded, all image metadata is assumed to be loaded.
-  if (xviewer_image_has_data(image, XVIEWER_IMAGE_DATA_XMP)) {
+  // If EXIF is loaded, all image metadata is assumed to be loaded.
+  if (xviewer_image_has_data(image, XVIEWER_IMAGE_DATA_EXIF)) {
     manage_infotxt_data(plugin);
   } else {
-    XviewerJob *const job = xviewer_job_load_new(image, XVIEWER_IMAGE_DATA_XMP);
+    XviewerJob *const job = xviewer_job_load_new(image, XVIEWER_IMAGE_DATA_EXIF);
     g_signal_connect(G_OBJECT(job), "finished",
                      G_CALLBACK(manage_infotxt_data_cb), plugin);
     xviewer_job_scheduler_add_job(job);
