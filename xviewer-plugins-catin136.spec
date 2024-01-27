@@ -81,6 +81,10 @@ fi
 
 
 %changelog
+* Sun Jan 28 2024 cat_in_136 - 0.0.3-1
+
+- fix bug where xviewer may crash on image load on infotxt plugin
+
 * Sun Jul 30 2023 cat_in_136 - 0.0.2-1
 - special text highlighting and copy button for AUTOMATIC1111/stable-diffusion-webui parameter
 - select thumbnail after sort changed
