@@ -13,6 +13,10 @@
 #include <xviewer/xviewer-window-activatable.h>
 #include <xviewer/xviewer-window.h>
 
+#ifdef HAVE_LCMS
+#include <lcms2.h>
+#endif
+
 #include "xviewer-infotxt-plugin.h"
 
 enum { PROP_0, PROP_WINDOW };
@@ -206,12 +210,26 @@ static void insert_infotxt_to_textbuffer(XviewerInfotxtPlugin *const plugin,
     GtkWidget *button = gtk_button_new_from_icon_name(
         "document-save-as-symbolic", GTK_ICON_SIZE_MENU);
     g_object_set_data(G_OBJECT(button), "data-base64", (gpointer)val);
+#ifdef HAVE_LCMS
+    XviewerImage *const image = xviewer_window_get_image(plugin->window);
+    cmsHPROFILE profile = xviewer_image_get_profile(image);
+    const cmsUInt32Number desc_size = cmsGetProfileInfoASCII(
+        profile, cmsInfoDescription, "\0\0", "\0\0", NULL, 0);
+    if (desc_size > 0) {
+      gchar desc[desc_size + 1];
+      const cmsUInt32Number newsize = cmsGetProfileInfoASCII(
+          profile, cmsInfoDescription, "\0\0", "\0\0", desc, desc_size);
+      if (desc_size == newsize) {
+        gtk_button_set_label(GTK_BUTTON(button), desc);
+      }
+    }
+#endif /* HAVE_LCMS */
     g_signal_connect(button, "clicked", G_CALLBACK(infotxt_save_icc_btn_cb),
                      (gpointer)plugin);
-    gtk_text_view_add_child_at_anchor(textview, button, anchor);
-    gtk_widget_show_all(button);
     gtk_text_buffer_insert(buffer, buffer_iter, "\n", -1);
     // gtk_text_buffer_insert(buffer, buffer_iter, val, -1);// do not show value
+    gtk_text_view_add_child_at_anchor(textview, button, anchor);
+    gtk_widget_show_all(button);
   } else { // Other normal
     gtk_text_buffer_insert(buffer, buffer_iter, "\n", -1);
     gtk_text_buffer_insert(buffer, buffer_iter, val, -1);

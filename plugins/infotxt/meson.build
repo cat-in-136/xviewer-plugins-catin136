@@ -24,7 +24,7 @@ i18n.merge_file(
 shared_library(
     plugin_name,
     'xviewer-infotxt-plugin.c',
-    dependencies: [config_h, glib, gtk, libpeas, xviewer],
+    dependencies: [config_h, glib, gtk, libpeas, lcms, xviewer],
     install: true,
     install_dir: plugin_libdir
 )
