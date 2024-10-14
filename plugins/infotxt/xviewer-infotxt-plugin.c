@@ -13,6 +13,10 @@
 #include <xviewer/xviewer-window-activatable.h>
 #include <xviewer/xviewer-window.h>
 
+#ifdef HAVE_LCMS
+#include <lcms2.h>
+#endif
+
 #include "xviewer-infotxt-plugin.h"
 
 enum { PROP_0, PROP_WINDOW };
@@ -42,7 +46,87 @@ static void infotxt_copy_btn_cb(GtkWidget *button, gpointer data) {
   gtk_clipboard_set_text(clipboard, text, -1);
 }
 
-static void insert_infotxt_to_textbuffer(GtkTextView *const textview,
+static void infotxt_save_icc_btn_cb(GtkWidget *button, gpointer data) {
+  XviewerInfotxtPlugin *const plugin = XVIEWER_INFOTXT_PLUGIN(data);
+  XviewerImage *const image = xviewer_window_get_image(plugin->window);
+
+  const gchar *const text = g_object_get_data(G_OBJECT(button), "data-base64");
+  gsize out_len;
+  guchar *const decoded_data = g_base64_decode(text, &out_len);
+  g_return_if_fail(decoded_data != NULL);
+
+  gchar *filename = NULL;
+  gboolean is_open_icc = FALSE;
+  {
+    GtkWidget *const dialog = gtk_file_chooser_dialog_new(
+        "Save ICC File" /* TODO */, NULL, GTK_FILE_CHOOSER_ACTION_SAVE,
+        N_("_Cancel"), GTK_RESPONSE_CANCEL, N_("_Save"), GTK_RESPONSE_ACCEPT,
+        NULL);
+    gtk_file_chooser_set_do_overwrite_confirmation(GTK_FILE_CHOOSER(dialog),
+                                                   TRUE);
+
+    GFile *const image_file = xviewer_image_get_file(image);
+    if (image_file != NULL) {
+      GFile *const image_dir = g_file_get_parent(image_file);
+      if (image_dir != NULL) {
+        gtk_file_chooser_set_current_folder_file(GTK_FILE_CHOOSER(dialog),
+                                                 image_dir, NULL);
+        g_object_unref(image_dir);
+      }
+
+      gchar *const basename = g_file_get_basename(image_file);
+      gchar *const new_basename = g_strconcat(basename, ".icc", NULL);
+      gtk_file_chooser_set_current_name(GTK_FILE_CHOOSER(dialog), new_basename);
+
+      g_free(basename);
+      g_free(new_basename);
+      g_object_unref(image_file);
+    }
+
+    GtkWidget *open_file_toggle;
+    open_file_toggle = gtk_check_button_new_with_label(N_("Open the ICC file"));
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(open_file_toggle), TRUE);
+    gtk_widget_show(open_file_toggle);
+    gtk_file_chooser_set_extra_widget(GTK_FILE_CHOOSER(dialog),
+                                      open_file_toggle);
+
+    if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
+      filename = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(dialog));
+      is_open_icc =
+          gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(open_file_toggle));
+    }
+    gtk_widget_destroy(dialog);
+  }
+
+  if (filename != NULL) {
+
+    GError *error = NULL;
+    if (!g_file_set_contents(filename, (const gchar *)decoded_data, out_len,
+                             &error)) {
+      g_printerr("Error saving file: %s\n", error->message);
+      g_free(decoded_data);
+      g_error_free(error);
+    } else if (is_open_icc == TRUE) {
+      char *const uri = g_filename_to_uri(filename, NULL, &error);
+      if (uri != NULL) {
+        if (!g_app_info_launch_default_for_uri(uri, NULL, &error)) {
+          g_printerr("Error launching file: %s\n", error->message);
+          g_error_free(error);
+        }
+        g_free(uri);
+      } else {
+        g_printerr("Error launching file: %s\n", error->message);
+        g_error_free(error);
+      }
+    }
+    g_free(filename);
+  } else {
+    // cancelled.
+  }
+}
+
+static void insert_infotxt_to_textbuffer(XviewerInfotxtPlugin *const plugin,
+                                         GtkTextView *const textview,
                                          GtkTextBuffer *const buffer,
                                          GtkTextIter *buffer_iter,
                                          const gchar *const key,
@@ -119,6 +203,33 @@ static void insert_infotxt_to_textbuffer(GtkTextView *const textview,
       gtk_text_buffer_insert(buffer, buffer_iter, p, -1);
       p = NULL;
     }
+  } else if (g_strcmp0(key, "icc-profile") == 0) {
+    GtkTextChildAnchor *const anchor =
+        gtk_text_buffer_create_child_anchor(buffer, buffer_iter);
+
+    GtkWidget *button = gtk_button_new_from_icon_name(
+        "document-save-as-symbolic", GTK_ICON_SIZE_MENU);
+    g_object_set_data(G_OBJECT(button), "data-base64", (gpointer)val);
+#ifdef HAVE_LCMS
+    XviewerImage *const image = xviewer_window_get_image(plugin->window);
+    cmsHPROFILE profile = xviewer_image_get_profile(image);
+    const cmsUInt32Number desc_size = cmsGetProfileInfoASCII(
+        profile, cmsInfoDescription, "\0\0", "\0\0", NULL, 0);
+    if (desc_size > 0) {
+      gchar desc[desc_size + 1];
+      const cmsUInt32Number newsize = cmsGetProfileInfoASCII(
+          profile, cmsInfoDescription, "\0\0", "\0\0", desc, desc_size);
+      if (desc_size == newsize) {
+        gtk_button_set_label(GTK_BUTTON(button), desc);
+      }
+    }
+#endif /* HAVE_LCMS */
+    g_signal_connect(button, "clicked", G_CALLBACK(infotxt_save_icc_btn_cb),
+                     (gpointer)plugin);
+    gtk_text_buffer_insert(buffer, buffer_iter, "\n", -1);
+    // gtk_text_buffer_insert(buffer, buffer_iter, val, -1);// do not show value
+    gtk_text_view_add_child_at_anchor(textview, button, anchor);
+    gtk_widget_show_all(button);
   } else { // Other normal
     gtk_text_buffer_insert(buffer, buffer_iter, "\n", -1);
     gtk_text_buffer_insert(buffer, buffer_iter, val, -1);
@@ -148,8 +259,8 @@ static void manage_infotxt_data(XviewerInfotxtPlugin *plugin) {
       g_hash_table_iter_init(&option_iter, options);
       while (g_hash_table_iter_next(&option_iter, (gpointer *)&key,
                                     (gpointer *)&val)) {
-        insert_infotxt_to_textbuffer(GTK_TEXT_VIEW(plugin->view), buffer,
-                                     &buffer_iter, key, val);
+        insert_infotxt_to_textbuffer(plugin, GTK_TEXT_VIEW(plugin->view),
+                                     buffer, &buffer_iter, key, val);
       }
       // options is not freed here.
     }
@@ -179,7 +290,8 @@ static void selection_changed_cb(XviewerThumbView *view,
   if (xviewer_image_has_data(image, XVIEWER_IMAGE_DATA_EXIF)) {
     manage_infotxt_data(plugin);
   } else {
-    XviewerJob *const job = xviewer_job_load_new(image, XVIEWER_IMAGE_DATA_EXIF);
+    XviewerJob *const job =
+        xviewer_job_load_new(image, XVIEWER_IMAGE_DATA_EXIF);
     g_signal_connect(G_OBJECT(job), "finished",
                      G_CALLBACK(manage_infotxt_data_cb), plugin);
     xviewer_job_scheduler_add_job(job);

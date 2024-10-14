@@ -1,0 +1,6 @@
+option(
+    'lcms',
+    type: 'feature',
+    value: 'auto',
+    description: 'enable LittleCMS 2 (liblcms2) support'
+)
