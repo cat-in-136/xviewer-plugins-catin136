@@ -1,4 +1,11 @@
 option(
+    'exempi',
+    type: 'feature',
+    value: 'auto',
+    description: 'enable XMP (libexempi) support'
+)
+
+option(
     'lcms',
     type: 'feature',
     value: 'auto',

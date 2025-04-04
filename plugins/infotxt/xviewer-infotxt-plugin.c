@@ -13,6 +13,11 @@
 #include <xviewer/xviewer-window-activatable.h>
 #include <xviewer/xviewer-window.h>
 
+#if HAVE_EXEMPI
+#include <exempi/xmp.h>
+#include <exempi/xmpconsts.h>
+#endif
+
 #ifdef HAVE_LCMS
 #include <lcms2.h>
 #endif
@@ -237,12 +242,40 @@ static void insert_infotxt_to_textbuffer(XviewerInfotxtPlugin *const plugin,
   gtk_text_buffer_insert(buffer, buffer_iter, "\n\n", -1);
 }
 
+static void insert_xmlinfo_to_textbuffer(XviewerInfotxtPlugin *const plugin,
+                                         GtkTextView *const textview,
+                                         GtkTextBuffer *const buffer,
+                                         GtkTextIter *buffer_iter,
+                                         const XmpStringPtr the_schema,
+                                         const XmpStringPtr the_path,
+                                         const XmpStringPtr the_prop) {
+  const char *const schema = xmp_string_cstr(the_schema);
+  const char *const path = xmp_string_cstr(the_path);
+  const char *const prop = xmp_string_cstr(the_prop);
+
+  gtk_text_buffer_insert_with_tags_by_name(buffer, buffer_iter, schema, -1,
+                                           "key", NULL);
+  gtk_text_buffer_insert(buffer, buffer_iter, ":", -1);
+  gtk_text_buffer_insert_with_tags_by_name(buffer, buffer_iter, path, -1,
+                                           "semikey", NULL);
+  gtk_text_buffer_insert(buffer, buffer_iter, "\n", -1);
+  gtk_text_buffer_insert(buffer, buffer_iter, prop, -1);
+  gtk_text_buffer_insert(buffer, buffer_iter, "\n\n", -1);
+}
+
 static void manage_infotxt_data(XviewerInfotxtPlugin *plugin) {
   XviewerThumbView *const thumbview =
       XVIEWER_THUMB_VIEW(xviewer_window_get_thumb_view(plugin->window));
   XviewerImage *const image =
       xviewer_thumb_view_get_first_selected_image(thumbview);
   g_return_if_fail(image != NULL);
+
+  GtkTextBuffer *const buffer =
+      gtk_text_view_get_buffer(GTK_TEXT_VIEW(plugin->view));
+  GtkTextIter buffer_iter;
+
+  gtk_text_buffer_set_text(buffer, "", -1); // clear all text
+  gtk_text_buffer_get_iter_at_offset(buffer, &buffer_iter, 0);
 
   GdkPixbuf *const pbuf = xviewer_image_get_pixbuf(image);
   if (pbuf) {
@@ -251,13 +284,6 @@ static void manage_infotxt_data(XviewerInfotxtPlugin *plugin) {
       GHashTableIter option_iter;
       const gchar *key = NULL;
       const gchar *val = NULL;
-
-      GtkTextBuffer *const buffer =
-          gtk_text_view_get_buffer(GTK_TEXT_VIEW(plugin->view));
-      GtkTextIter buffer_iter;
-
-      gtk_text_buffer_set_text(buffer, "", -1); // clear all text
-      gtk_text_buffer_get_iter_at_offset(buffer, &buffer_iter, 0);
 
       g_hash_table_iter_init(&option_iter, options);
       while (g_hash_table_iter_next(&option_iter, (gpointer *)&key,
@@ -273,6 +299,30 @@ static void manage_infotxt_data(XviewerInfotxtPlugin *plugin) {
     }
     g_object_unref(pbuf);
   }
+
+#if HAVE_EXEMPI
+  XmpPtr xmp_data = xviewer_image_get_xmp_info(image);
+  if (xmp_data != NULL) {
+    XmpIteratorPtr iter =
+        xmp_iterator_new(xmp_data, NULL, NULL, XMP_ITER_JUSTLEAFNODES);
+    XmpStringPtr the_schema = xmp_string_new();
+    XmpStringPtr the_path = xmp_string_new();
+    XmpStringPtr the_prop = xmp_string_new();
+
+    while (xmp_iterator_next(iter, the_schema, the_path, the_prop, NULL)) {
+      insert_xmlinfo_to_textbuffer(plugin, GTK_TEXT_VIEW(plugin->view), buffer,
+                                   &buffer_iter, the_schema, the_path,
+                                   the_prop);
+    }
+
+    xmp_string_free(the_prop);
+    xmp_string_free(the_path);
+    xmp_string_free(the_schema);
+    xmp_iterator_free(iter);
+
+    xmp_free(xmp_data);
+  }
+#endif
 }
 
 static void manage_infotxt_data_cb(XviewerJob *job, gpointer data) {

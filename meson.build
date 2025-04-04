@@ -31,6 +31,11 @@ libpeas = dependency('libpeas-1.0', version: '>=0.7.4')
 libpeas_gtk = dependency('libpeas-gtk-1.0', version: '>= 1.12.0')
 xviewer = dependency('xviewer', version: '>=3.2.1')
 
+exempi = dependency('exempi-2.0', version: '>= 1.99.5', required: get_option('exempi'))
+if exempi.found()
+    proj_conf.set10('HAVE_EXEMPI', true)
+endif
+
 lcms = dependency('lcms2', required: get_option('lcms'))
 if lcms.found()
     proj_conf.set10('HAVE_LCMS', true)
