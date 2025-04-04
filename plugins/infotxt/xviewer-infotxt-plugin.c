@@ -262,8 +262,12 @@ static void manage_infotxt_data(XviewerInfotxtPlugin *plugin) {
       g_hash_table_iter_init(&option_iter, options);
       while (g_hash_table_iter_next(&option_iter, (gpointer *)&key,
                                     (gpointer *)&val)) {
-        insert_infotxt_to_textbuffer(plugin, GTK_TEXT_VIEW(plugin->view),
-                                     buffer, &buffer_iter, key, val);
+        if (g_strcmp0(key, "tEXt::XML:com.adobe.xmp") == 0) {
+          // do not insert to the text buffer
+        } else {
+          insert_infotxt_to_textbuffer(plugin, GTK_TEXT_VIEW(plugin->view),
+                                       buffer, &buffer_iter, key, val);
+        }
       }
       // options is not freed here.
     }
