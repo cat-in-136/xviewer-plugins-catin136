@@ -236,14 +236,17 @@ static void insert_infotxt_to_textbuffer(XviewerInfotxtPlugin *const plugin,
     g_signal_connect(button, "clicked", G_CALLBACK(infotxt_save_icc_btn_cb),
                      (gpointer)plugin);
     gtk_text_buffer_insert(buffer, buffer_iter, "\n", -1);
-    // gtk_text_buffer_insert(buffer, buffer_iter, val, -1);// do not show value
+    //// do not show value
+    // gtk_text_buffer_insert_with_tags_by_name(buffer, buffer_iter,
+    //                                          val, -1, "value-indent", NULL);
     gtk_text_view_add_child_at_anchor(textview, button, anchor);
     gtk_widget_show_all(button);
   } else { // Other normal
     gtk_text_buffer_insert(buffer, buffer_iter, "\n", -1);
-    gtk_text_buffer_insert(buffer, buffer_iter, val, -1);
+    gtk_text_buffer_insert_with_tags_by_name(buffer, buffer_iter, val, -1,
+                                             "value-indent", NULL);
   }
-  gtk_text_buffer_insert(buffer, buffer_iter, "\n\n", -1);
+  gtk_text_buffer_insert(buffer, buffer_iter, "\n", -1);
 }
 
 static void insert_xmlinfo_to_textbuffer(XviewerInfotxtPlugin *const plugin,
@@ -263,8 +266,9 @@ static void insert_xmlinfo_to_textbuffer(XviewerInfotxtPlugin *const plugin,
   gtk_text_buffer_insert_with_tags_by_name(buffer, buffer_iter, path, -1,
                                            "semikey", NULL);
   gtk_text_buffer_insert(buffer, buffer_iter, "\n", -1);
-  gtk_text_buffer_insert(buffer, buffer_iter, prop, -1);
-  gtk_text_buffer_insert(buffer, buffer_iter, "\n\n", -1);
+  gtk_text_buffer_insert_with_tags_by_name(buffer, buffer_iter, prop, -1,
+                                           "value-indent", NULL);
+  gtk_text_buffer_insert(buffer, buffer_iter, "\n", -1);
 }
 
 static void manage_infotxt_data(XviewerInfotxtPlugin *plugin) {
@@ -348,7 +352,8 @@ static void manage_infotxt_data(XviewerInfotxtPlugin *plugin) {
           gtk_text_buffer_insert_with_tags_by_name(buffer, &buffer_iter,
                                                    tag_name, -1, "key", NULL);
           gtk_text_buffer_insert(buffer, &buffer_iter, "\n", -1);
-          gtk_text_buffer_insert(buffer, &buffer_iter, text, -1);
+          gtk_text_buffer_insert_with_tags_by_name(buffer, &buffer_iter, text,
+                                                   -1, "value-indent", NULL);
           gtk_text_buffer_insert(buffer, &buffer_iter, "\n", -1);
         }
 
@@ -435,6 +440,7 @@ static void impl_activate(XviewerWindowActivatable *activatable) {
   gtk_text_buffer_create_tag(buffer, "key", "weight", PANGO_WEIGHT_BOLD, NULL);
   gtk_text_buffer_create_tag(buffer, "semikey", "weight", PANGO_WEIGHT_SEMIBOLD,
                              NULL);
+  gtk_text_buffer_create_tag(buffer, "value-indent", "left_margin", 10, NULL);
 
   plugin->sidebar_page = gtk_scrolled_window_new(NULL, NULL);
   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(plugin->sidebar_page),
