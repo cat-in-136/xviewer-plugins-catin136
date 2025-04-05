@@ -238,7 +238,10 @@ static void insert_infotxt_to_textbuffer(XviewerInfotxtPlugin *const plugin,
 }
 
 static void manage_infotxt_data(XviewerInfotxtPlugin *plugin) {
-  XviewerImage *const image = xviewer_window_get_image(plugin->window);
+  XviewerThumbView *const thumbview =
+      XVIEWER_THUMB_VIEW(xviewer_window_get_thumb_view(plugin->window));
+  XviewerImage *const image =
+      xviewer_thumb_view_get_first_selected_image(thumbview);
   g_return_if_fail(image != NULL);
 
   GdkPixbuf *const pbuf = xviewer_image_get_pixbuf(image);
