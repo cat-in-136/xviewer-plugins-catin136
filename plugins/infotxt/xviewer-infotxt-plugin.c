@@ -13,6 +13,15 @@
 #include <xviewer/xviewer-window-activatable.h>
 #include <xviewer/xviewer-window.h>
 
+#if HAVE_EXEMPI
+#include <exempi/xmp.h>
+#include <exempi/xmpconsts.h>
+#endif
+
+#ifndef HAVE_EXIF
+#include <xviewer/xviewer-exif-util.h>
+#endif
+
 #ifdef HAVE_LCMS
 #include <lcms2.h>
 #endif
@@ -227,14 +236,39 @@ static void insert_infotxt_to_textbuffer(XviewerInfotxtPlugin *const plugin,
     g_signal_connect(button, "clicked", G_CALLBACK(infotxt_save_icc_btn_cb),
                      (gpointer)plugin);
     gtk_text_buffer_insert(buffer, buffer_iter, "\n", -1);
-    // gtk_text_buffer_insert(buffer, buffer_iter, val, -1);// do not show value
+    //// do not show value
+    // gtk_text_buffer_insert_with_tags_by_name(buffer, buffer_iter,
+    //                                          val, -1, "value-indent", NULL);
     gtk_text_view_add_child_at_anchor(textview, button, anchor);
     gtk_widget_show_all(button);
   } else { // Other normal
     gtk_text_buffer_insert(buffer, buffer_iter, "\n", -1);
-    gtk_text_buffer_insert(buffer, buffer_iter, val, -1);
+    gtk_text_buffer_insert_with_tags_by_name(buffer, buffer_iter, val, -1,
+                                             "value-indent", NULL);
   }
-  gtk_text_buffer_insert(buffer, buffer_iter, "\n\n", -1);
+  gtk_text_buffer_insert(buffer, buffer_iter, "\n", -1);
+}
+
+static void insert_xmlinfo_to_textbuffer(XviewerInfotxtPlugin *const plugin,
+                                         GtkTextView *const textview,
+                                         GtkTextBuffer *const buffer,
+                                         GtkTextIter *buffer_iter,
+                                         const XmpStringPtr the_schema,
+                                         const XmpStringPtr the_path,
+                                         const XmpStringPtr the_prop) {
+  const char *const schema = xmp_string_cstr(the_schema);
+  const char *const path = xmp_string_cstr(the_path);
+  const char *const prop = xmp_string_cstr(the_prop);
+
+  gtk_text_buffer_insert_with_tags_by_name(buffer, buffer_iter, schema, -1,
+                                           "key", NULL);
+  gtk_text_buffer_insert(buffer, buffer_iter, ":", -1);
+  gtk_text_buffer_insert_with_tags_by_name(buffer, buffer_iter, path, -1,
+                                           "semikey", NULL);
+  gtk_text_buffer_insert(buffer, buffer_iter, "\n", -1);
+  gtk_text_buffer_insert_with_tags_by_name(buffer, buffer_iter, prop, -1,
+                                           "value-indent", NULL);
+  gtk_text_buffer_insert(buffer, buffer_iter, "\n", -1);
 }
 
 static void manage_infotxt_data(XviewerInfotxtPlugin *plugin) {
@@ -244,6 +278,13 @@ static void manage_infotxt_data(XviewerInfotxtPlugin *plugin) {
       xviewer_thumb_view_get_first_selected_image(thumbview);
   g_return_if_fail(image != NULL);
 
+  GtkTextBuffer *const buffer =
+      gtk_text_view_get_buffer(GTK_TEXT_VIEW(plugin->view));
+  GtkTextIter buffer_iter;
+
+  gtk_text_buffer_set_text(buffer, "", -1); // clear all text
+  gtk_text_buffer_get_iter_at_offset(buffer, &buffer_iter, 0);
+
   GdkPixbuf *const pbuf = xviewer_image_get_pixbuf(image);
   if (pbuf) {
     GHashTable *const options = gdk_pixbuf_get_options(pbuf);
@@ -252,23 +293,102 @@ static void manage_infotxt_data(XviewerInfotxtPlugin *plugin) {
       const gchar *key = NULL;
       const gchar *val = NULL;
 
-      GtkTextBuffer *const buffer =
-          gtk_text_view_get_buffer(GTK_TEXT_VIEW(plugin->view));
-      GtkTextIter buffer_iter;
-
-      gtk_text_buffer_set_text(buffer, "", -1); // clear all text
-      gtk_text_buffer_get_iter_at_offset(buffer, &buffer_iter, 0);
-
       g_hash_table_iter_init(&option_iter, options);
       while (g_hash_table_iter_next(&option_iter, (gpointer *)&key,
                                     (gpointer *)&val)) {
-        insert_infotxt_to_textbuffer(plugin, GTK_TEXT_VIEW(plugin->view),
-                                     buffer, &buffer_iter, key, val);
+        if (g_strcmp0(key, "tEXt::XML:com.adobe.xmp") == 0) {
+          // do not insert to the text buffer
+        } else {
+          insert_infotxt_to_textbuffer(plugin, GTK_TEXT_VIEW(plugin->view),
+                                       buffer, &buffer_iter, key, val);
+        }
       }
       // options is not freed here.
     }
     g_object_unref(pbuf);
   }
+
+#if HAVE_EXIF
+  ExifData *exif = xviewer_image_get_exif_info(image);
+  if (exif != NULL) {
+    static const ExifTag EXIF_TAGS[] = {
+        EXIF_TAG_DATE_TIME_ORIGINAL,
+        EXIF_TAG_DATE_TIME_DIGITIZED,
+        EXIF_TAG_MAKE,
+        EXIF_TAG_MODEL,
+        EXIF_TAG_LENS_MAKE,
+        EXIF_TAG_LENS_MODEL,
+        EXIF_TAG_SOFTWARE,
+        EXIF_TAG_EXPOSURE_TIME,
+        EXIF_TAG_FNUMBER,
+        EXIF_TAG_ISO_SPEED_RATINGS,
+        EXIF_TAG_FOCAL_LENGTH,
+        EXIF_TAG_EXPOSURE_MODE,
+        EXIF_TAG_WHITE_BALANCE,
+    };
+    gchar exif_buffer[512];
+    const gchar *buf_ptr = NULL;
+    gchar *text = NULL;
+
+    for (int i = 0; i < sizeof(EXIF_TAGS) / sizeof(EXIF_TAGS[0]); i++) {
+      buf_ptr = xviewer_exif_data_get_value(exif, EXIF_TAGS[i], exif_buffer,
+                                            sizeof(exif_buffer));
+      if (buf_ptr != NULL) {
+        if ((EXIF_TAGS[i] == EXIF_TAG_DATE_TIME_ORIGINAL ||
+             EXIF_TAGS[i] == EXIF_TAG_DATE_TIME_DIGITIZED) &&
+            buf_ptr) {
+          text = xviewer_exif_util_format_date(buf_ptr);
+        } else {
+          const size_t text_len = strnlen(buf_ptr, sizeof(exif_buffer)) + 8;
+          text = g_strndup(buf_ptr, text_len);
+          if (g_utf8_make_valid(text, text_len) == NULL) {
+            g_free(text);
+            continue;
+          }
+        }
+
+        if (g_strcmp0(text, "") != 0) {
+          const char *const tag_name = exif_tag_get_name(EXIF_TAGS[i]);
+          gtk_text_buffer_insert_with_tags_by_name(buffer, &buffer_iter,
+                                                   tag_name, -1, "key", NULL);
+          gtk_text_buffer_insert(buffer, &buffer_iter, "\n", -1);
+          gtk_text_buffer_insert_with_tags_by_name(buffer, &buffer_iter, text,
+                                                   -1, "value-indent", NULL);
+          gtk_text_buffer_insert(buffer, &buffer_iter, "\n", -1);
+        }
+
+        g_free(text);
+      }
+    }
+
+    exif_data_unref(exif);
+    gtk_text_buffer_insert(buffer, &buffer_iter, "\n", -1);
+  }
+#endif
+
+#if HAVE_EXEMPI
+  XmpPtr xmp_data = xviewer_image_get_xmp_info(image);
+  if (xmp_data != NULL) {
+    XmpIteratorPtr iter =
+        xmp_iterator_new(xmp_data, NULL, NULL, XMP_ITER_JUSTLEAFNODES);
+    XmpStringPtr the_schema = xmp_string_new();
+    XmpStringPtr the_path = xmp_string_new();
+    XmpStringPtr the_prop = xmp_string_new();
+
+    while (xmp_iterator_next(iter, the_schema, the_path, the_prop, NULL)) {
+      insert_xmlinfo_to_textbuffer(plugin, GTK_TEXT_VIEW(plugin->view), buffer,
+                                   &buffer_iter, the_schema, the_path,
+                                   the_prop);
+    }
+
+    xmp_string_free(the_prop);
+    xmp_string_free(the_path);
+    xmp_string_free(the_schema);
+    xmp_iterator_free(iter);
+
+    xmp_free(xmp_data);
+  }
+#endif
 }
 
 static void manage_infotxt_data_cb(XviewerJob *job, gpointer data) {
@@ -290,8 +410,11 @@ static void selection_changed_cb(XviewerThumbView *view,
   g_return_if_fail(image != NULL);
 
   // If EXIF is loaded, all image metadata is assumed to be loaded.
-  if (xviewer_image_has_data(image, XVIEWER_IMAGE_DATA_EXIF)) {
-    manage_infotxt_data(plugin);
+  if (xviewer_image_get_metadata_status(image) ==
+          XVIEWER_IMAGE_METADATA_READY &&
+      xviewer_image_has_data(image, XVIEWER_IMAGE_DATA_EXIF)) {
+    // manage_infotxt_data(plugin);
+    g_idle_add((GSourceFunc)manage_infotxt_data, plugin);
   } else {
     XviewerJob *const job =
         xviewer_job_load_new(image, XVIEWER_IMAGE_DATA_EXIF);
@@ -317,6 +440,7 @@ static void impl_activate(XviewerWindowActivatable *activatable) {
   gtk_text_buffer_create_tag(buffer, "key", "weight", PANGO_WEIGHT_BOLD, NULL);
   gtk_text_buffer_create_tag(buffer, "semikey", "weight", PANGO_WEIGHT_SEMIBOLD,
                              NULL);
+  gtk_text_buffer_create_tag(buffer, "value-indent", "left_margin", 10, NULL);
 
   plugin->sidebar_page = gtk_scrolled_window_new(NULL, NULL);
   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(plugin->sidebar_page),
