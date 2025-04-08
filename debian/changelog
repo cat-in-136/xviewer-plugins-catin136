@@ -1,3 +1,8 @@
+xviewer-plugins-catin136 (0.0.5) unstable; urgency=medium
+
+  * infotxt: Fix bug where infotxt may be not updated after changing image
+  * infotxt: Add XMP and EXIF
+
 xviewer-plugins-catin136 (0.0.4) unstable; urgency=medium
 
   * infotxt: meaningfull icc-profile display

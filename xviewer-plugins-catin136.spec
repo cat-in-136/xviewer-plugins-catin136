@@ -1,5 +1,5 @@
 Name:		xviewer-plugins-catin136
-Version:	0.0.4
+Version:	0.0.5
 Release:	0%{?dist}
 Summary:	cat_in_136's set of plugins for xviewer
 
@@ -81,6 +81,10 @@ fi
 
 
 %changelog
+* Tue Apr 8 2025 cat_in_136 - 0.0.5-1
+- infotxt: Fix bug where infotxt may be not updated after changing image
+- infotxt: Add XMP and EXIF
+
 * Sun Dec 1 2024 cat_in_136 - 0.0.4-1
 - infotxt: meaningfull icc-profile display
 
