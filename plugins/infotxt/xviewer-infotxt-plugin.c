@@ -413,8 +413,7 @@ static void selection_changed_cb(XviewerThumbView *view,
   if (xviewer_image_get_metadata_status(image) ==
           XVIEWER_IMAGE_METADATA_READY &&
       xviewer_image_has_data(image, XVIEWER_IMAGE_DATA_EXIF)) {
-    // manage_infotxt_data(plugin);
-    g_idle_add((GSourceFunc)manage_infotxt_data, plugin);
+    manage_infotxt_data(plugin);
   } else {
     XviewerJob *const job =
         xviewer_job_load_new(image, XVIEWER_IMAGE_DATA_EXIF);
