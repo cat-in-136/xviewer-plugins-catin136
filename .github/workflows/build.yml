@@ -1,4 +1,4 @@
-name: Build DEB for Linux Mint
+name: Build(/Release) DEB for Linux Mint
 
 on: [push, pull_request]
 
@@ -9,7 +9,7 @@ jobs:
     container:
       image: linuxmintd/mint21.1-amd64:latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         path: xviewer-plugins-catin136
     - name: Install Dependencies
@@ -35,4 +35,11 @@ jobs:
       run: |
         dh_auto_configure --buildsystem=meson
         dpkg-buildpackage -rfakeroot -us -uc -b
-      
+    - name: Create Release
+      uses: softprops/action-gh-release@v2
+      if: github.ref_type == 'tag'
+      with:
+        tag_name: ${{github.ref_name}}
+        generate_release_notes: true
+        files: |
+          xviewer-plugins-catin136_*_amd64.deb
