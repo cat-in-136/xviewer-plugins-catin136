@@ -1,3 +1,7 @@
+xviewer-plugins-catin136 (0.0.6) unstable; urgency=medium
+
+  * Merge workflow to build workflow with release step; remove old release workflow.
+
 xviewer-plugins-catin136 (0.0.5) unstable; urgency=medium
 
   * infotxt: Fix bug where infotxt may be not updated after changing image

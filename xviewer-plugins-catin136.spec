@@ -1,5 +1,5 @@
 Name:		xviewer-plugins-catin136
-Version:	0.0.5
+Version:	0.0.6
 Release:	0%{?dist}
 Summary:	cat_in_136's set of plugins for xviewer
 
@@ -81,6 +81,9 @@ fi
 
 
 %changelog
+* Fri Apr 11 2025 cat_in_136 - 0.0.6-1
+- Merge workflow to build workflow with release step; remove old release workflow.
+
 * Tue Apr 8 2025 cat_in_136 - 0.0.5-1
 - infotxt: Fix bug where infotxt may be not updated after changing image
 - infotxt: Add XMP and EXIF

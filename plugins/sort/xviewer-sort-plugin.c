@@ -1,6 +1,6 @@
 /* Sort  -- Sort photos
  *
- * Copyright (C) 2023-2024 @cat_in_136
+ * Copyright (C) 2023-2025 @cat_in_136
  *
  * Author: @cat_in_136
  *
